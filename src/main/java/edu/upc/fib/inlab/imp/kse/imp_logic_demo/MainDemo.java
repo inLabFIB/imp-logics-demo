@@ -176,7 +176,7 @@ public class MainDemo {
         Set<Predicate> dependencySchemaPredicates = logicSchema.getAllPredicates();
 
         printWithHeader("Dependency Schema", dependencySchemaPrinter.print(dependencySchema));
-        LOGGER.info("\n Predicates:");
+        LOGGER.info("\nPredicates:");
         for (Predicate p : dependencySchemaPredicates) LOGGER.info(logicSchemaPrinter.visit(p));
 
         /* ---------------------------------------------------------------------------------------------------- */
@@ -223,7 +223,7 @@ public class MainDemo {
         Set<Predicate> normalizedDependencySchemaPredicates = normalizedDependencySchema.getAllPredicates();
 
         printWithHeader("Normalized Dependency Schema", dependencySchemaPrinter.print(normalizedDependencySchema));
-        LOGGER.info("\n Predicates:");
+        LOGGER.info("\nPredicates:");
         for (Predicate p : normalizedDependencySchemaPredicates) LOGGER.info(logicSchemaPrinter.visit(p));
 
         /* ---------------------------------------------------------------------------------------------------- */

@@ -15,10 +15,10 @@ docker run -p 8888:8888 inlabfib/jupyter-notebook-java-17
 
 Once in the jupyter notebook environment you will need to load the following files:
 
-- `imp-logics-demo-script.ipynb` : the demo script
-- `imp-logics-2.0.0-SNAPSHOT.jar` : IMP-LOGICS .jar dependency
-- `imp-logics-2.0.0-SNAPSHOT-tests.jar` : IMP-LOGICS tests .jar dependency
-- `???rewriting???` : Rewriting .jar dependency
+- `/demo/imp-logics-demo-script.ipynb` : the demo script
+- `/lib/imp-logics-2.0.0-SNAPSHOT.jar` : IMP-LOGICS .jar dependency
+- `/lib/imp-logics-2.0.0-SNAPSHOT-tests.jar` : IMP-LOGICS tests .jar dependency
+- `/lib/ontological-queries-rewriting-1.0-SNAPSHOT.jar` : Rewriting .jar dependency
 
 ## Try demo
 
