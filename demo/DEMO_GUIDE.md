@@ -1,6 +1,6 @@
 # DEMO GUIDE
 
-The demo is run over a Jutyper notebook (https://jupyter.org/).
+The demo is run over a Jupyter notebook (https://jupyter.org/).
 To facilitate its usage, we have already prepared a docker-image
 with everything you need.
 
