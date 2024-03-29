@@ -169,8 +169,9 @@ public class MainDemo {
                 % If a teacher is expert in a subject from a study plan, the teacher gives the subject
                 ExpertIn(teacher, subject), ComposesPlan(subject, studyPlan) -> Teaches(teacher, subject)
                                 
-                % A subject has, at most, one teacher
-                % Teaches(teacher1, subject), Teaches(teacher2, subject) -> teacher1=teacher2
+                % A subject has, at most, one exam per day
+                Exam(teacher, student, subject, data), Exam(teacher2, student2, subject, data) -> teacher = teacher2
+                Exam(teacher, student, subject, data), Exam(teacher2, student2, subject, data) -> student = student2
                 """;
         DependencySchema dependencySchema = dependencySchemaParser.parse(dependencySchemaString);
         Set<Predicate> dependencySchemaPredicates = logicSchema.getAllPredicates();
