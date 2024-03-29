@@ -38,7 +38,9 @@ public class TGDNormalizerProcess {
      * @return a new dependencySchema where all TGDs have been normalized
      */
     public DependencySchema normalize(DependencySchema schema) {
-        DependencyProcessPipeline pipeline = new DependencyProcessPipeline(List.of(new SingleHeadTGDTransformer(), new SingleExistentialVarTGDTransformer()));
+        DependencyProcessPipeline pipeline = new DependencyProcessPipeline(List.of(
+                new SingleHeadTGDTransformer(),
+                new SingleExistentialVarTGDTransformer()));
         return pipeline.execute(schema);
     }
 }

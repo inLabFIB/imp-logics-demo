@@ -22,10 +22,14 @@ You'll see that the command prints a link with the form `http://localhost:8888/?
 
 Once in the jupyter notebook environment you will need to load the following files:
 
+- `/demo/DB_Demo.png` : an image representing a logic schema we will use
+- `/demo/DatalogMetamodel.png` : an image of the Datalog metamodel
+- `/demo/DependencyMetamodel.png` : an image of the Dependency metamodel
 - `/demo/imp-logics-demo-script.ipynb` : the demo script
 - `/lib/imp-logics-2.0.0.jar` : IMP-Logics .jar dependency
 - `/lib/imp-logics-2.0.0-tests.jar` : IMP-Logics tests .jar dependency
 - `/lib/ontological-queries-rewriting-1.0-SNAPSHOT.jar` : an example of an OBDA rewriting algorithm implemented with IMP-Logics.
+
 
 The source code of *ontological-queries-rewriting-1.0-SNAPSHOT* can be seen in the package *ontological_queries_rewritting*.
 
