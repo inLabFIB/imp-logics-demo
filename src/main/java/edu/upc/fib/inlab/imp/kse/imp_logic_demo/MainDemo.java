@@ -2,12 +2,16 @@ package edu.upc.fib.inlab.imp.kse.imp_logic_demo;
 
 import edu.upc.fib.inlab.imp.kse.imp_logic_demo.utils.LogFormatter;
 import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.domain.DependencySchema;
+import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.domain.EGD;
 import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.domain.TGD;
 import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.analyzers.DatalogPlusMinusAnalyzer;
 import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.analyzers.egds.NonConflictingEGDsAnalyzer;
 import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.parser.DependencySchemaParser;
 import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.printer.DependencySchemaPrinter;
-import edu.upc.fib.inlab.imp.kse.logics.logicschema.assertions.LogicSchemaAssertions;
+import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.processes.DependencyProcessPipeline;
+import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.processes.SingleExistentialVarTGDTransformer;
+import edu.upc.fib.inlab.imp.kse.logics.dependencyschema.services.processes.SingleHeadTGDTransformer;
+import edu.upc.fib.inlab.imp.kse.logics.logicschema.assertions.QueryAssert;
 import edu.upc.fib.inlab.imp.kse.logics.logicschema.domain.*;
 import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.parser.LogicSchemaWithIDsParser;
 import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.parser.QueryParser;
@@ -16,10 +20,8 @@ import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.printer.QueryPrinte
 import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.processes.EqualityReplacer;
 import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.processes.LogicProcessPipeline;
 import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.processes.SchemaUnfolder;
-import edu.upc.fib.inlab.imp.kse.logics.logicschema.services.processes.SingleDerivationRuleTransformer;
 import edu.upc.fib.inlab.imp.kse.ontological_queries_rewriting.OBDAMapping;
 import edu.upc.fib.inlab.imp.kse.ontological_queries_rewriting.Rewriter;
-import edu.upc.fib.inlab.imp.kse.ontological_queries_rewriting.utils.normalizers.TGDNormalizerProcess;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -29,7 +31,6 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Formatter;
 import java.util.logging.Logger;
 
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class MainDemo {
 
@@ -44,26 +45,60 @@ public class MainDemo {
         LOGGER.addHandler(handler);
     }
 
+    private static void print(String content) {
+        System.out.print(content);
+    }
+
+    private static void println(String content) {
+        System.out.println(content);
+    }
+
     private static void printWithHeader(String logicConstraintUsedVariables, String content) {
-        LOGGER.info(logicConstraintUsedVariables + ": ");
-        LOGGER.info(content);
+        System.out.print("\u001B[1m" + logicConstraintUsedVariables + ":\033[0m \n");
+        System.out.println(content);
+    }
+
+    private static void printWithHeaderInline(String logicConstraintUsedVariables, String content) {
+        System.out.print("\u001B[1m" + logicConstraintUsedVariables + ":\033[0m ");
+        System.out.println(content);
+    }
+
+    private static void printHeaderInline(String logicConstraintUsedVariables) {
+        System.out.print("\u001B[1m" + logicConstraintUsedVariables + ":\033[0m ");
     }
 
 
     public static void main(String[] args) {
-        LOGGER.info("DEMO START");
+        print("DEMO START");
 
         /* ---------------------------------------------------------------------------------------------------- */
 
-        LOGGER.info("\n -- LOADING LOGIC SCHEMA UTILS & TOOLS -- ");
-        LogicSchemaWithIDsParser logicSchemaParser = new LogicSchemaWithIDsParser();
-        LogicSchemaPrinter logicSchemaPrinter = new LogicSchemaPrinter();
-        QueryParser queryParser = new QueryParser();
-        QueryPrinter queryPrinter = new QueryPrinter();
+        print("\n### PART 1: LogicSchema, the Datalog metamodel");
+        print("\n#### Parsing a LogicSchema");
+        print("\nWe start by parsing a logic schema regarding some university.");
 
-        /* ---------------------------------------------------------------------------------------------------- */
+        Set<Predicate> predicates = Set.of(
+                new Predicate("DB_AcademicRecord", 3),
+                new Predicate("DB_Student", 2),
+                new Predicate("DB_Studies", 2),
+                new Predicate("DB_Subject", 1),
+                new Predicate("DB_AssistantTeacher", 2),
+                new Predicate("DB_TenuredTeacher", 2),
+                new Predicate("DB_Teaches", 2),
+                new Predicate("DB_ComposesPlan", 2),
+                new Predicate("DB_StudiesPlan", 1),
+                new Predicate("DB_PublishesAbout", 3)
+        );
 
-        LOGGER.info("\n -- PARSING & PRINTING LOGIC SCHEMA (CONTAINS LOGIC CONSTRAINTS AND MAPPINGS) -- ");
+        print("""
+                Assume that we want to define:
+                - 3 constraints (written as denial constraints -aka negative constraints-)
+                - Some derived predicates.
+                              
+                The easiest way is by parsing them.
+                """);
+        print("\nLet's first define the constraints and derivation rules as Strings:");
+
         String logicSchemaString = """
                 %% Schema Logic Constraints
                 % AcademicRecord reference key to Student
@@ -78,87 +113,100 @@ public class MainDemo {
                 % A teacher cannot teach himself
                 @TeacherCannotTeachHimself :- DB_Teaches(teacherName, subject), DB_Studies(studentName, subject), teacherName=studentName
                 """;
-        Set<Predicate> extraPredicates = Set.of(
-                new Predicate("DB_ComposesPlan", 2),
-                new Predicate("DB_PublishesAbout", 3)
-        );
-        LogicSchema logicSchema = logicSchemaParser.parse(logicSchemaString, extraPredicates);
-        Set<Predicate> logicSchemaPredicates = logicSchema.getAllPredicates();
 
+        print("\nNow we can parse them into a LogicSchema object.\n");
+
+        LogicSchemaWithIDsParser logicSchemaParser = new LogicSchemaWithIDsParser();
+        LogicSchema logicSchema = logicSchemaParser.parse(logicSchemaString, predicates);
+
+        print("\nWe can print the schema:\n");
+
+        LogicSchemaPrinter logicSchemaPrinter = new LogicSchemaPrinter();
         printWithHeader("Logic Schema", logicSchemaPrinter.print(logicSchema));
-        LOGGER.info("\nPredicates:");
-        for (Predicate p : logicSchemaPredicates) LOGGER.info(logicSchemaPrinter.visit(p));
+
+        print("\nWhat else can we do?\n");
 
         /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### LogicSchema navigation\n");
+        print("""
+                To show the navigation capabilities, we will pick the logic constraint `@AcademicRecordFKToStudent`.
+                From there, we will start visiting its literals, variables, predicates, etc.
+                """);
 
-        LOGGER.info("\n -- LOGIC SCHEMA OBJECTS MANIPULATION -- ");
-        LOGGER.info("We will focus on constraint @AcademicRecordFKToStudent");
         LogicConstraint selectedConstraint = logicSchema.getLogicConstraintByID(new ConstraintID("AcademicRecordFKToStudent"));
-        printWithHeader("Selected Logic Constraint", logicSchemaPrinter.visit(selectedConstraint));
+        printWithHeaderInline("Selected Logic Constraint", logicSchemaPrinter.visit(selectedConstraint));
 
-        /* ---------------------------------------------------------------------------------------------------- */
+        print("\nWe can check the used variables in the constraint body\n");
 
-        LOGGER.info("\nWe can check the used variables in the constraint body");
         Set<Variable> usedVariables = selectedConstraint.getBody().getUsedVariables();
-        LOGGER.info("Used Variables in Body: ");
-        for (Variable v : usedVariables) LOGGER.info(logicSchemaPrinter.visit(v));
+        printHeaderInline("Used Variables in Body");
+        for (Variable v : usedVariables) print(v.getName() + " ");
 
-        /* ---------------------------------------------------------------------------------------------------- */
+        print("\nWe can also navigate to its literals, predicates, and derivation rules it depends on.\n");
+        print("\nWe can select a literal of the constraint, and check its positive/negative polarity, whether it is ground or not, or if it is base or derived.\n");
 
-        LOGGER.info("\nWe can select a literal of the constraint");
         OrdinaryLiteral olit = (OrdinaryLiteral) selectedConstraint.getBody().get(1);
-        printWithHeader("Selected Ordinary Literal", logicSchemaPrinter.visit(olit));
+        printWithHeaderInline("Selected Ordinary Literal", olit.toString());
 
-        LOGGER.info("Ordinary Literal is negative: " + olit.isNegative());
-        assertThat(olit.isNegative()).isTrue();
+        println("Ordinary Literal is negative: " + olit.isNegative());
+        println("Ordinary Literal is ground: " + olit.isGround());
+        println("Ordinary Literal is base: " + olit.isBase());
 
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\nThe predicate of an ordinary literal can be obtained");
+        print("\nThe predicate of an ordinary literal can be obtained, and we can check whether it is base or derived.\n");
         Predicate olitPredicate = olit.getPredicate();
-        printWithHeader("Obtained Predicate", logicSchemaPrinter.visit(olitPredicate));
-        LOGGER.info("Predicate Literal is base: " + olitPredicate.isBase());
-        assertThat(olitPredicate.isBase()).isFalse();
-        LOGGER.info("Predicate Literal is derived: " + olitPredicate.isDerived());
-        assertThat(olitPredicate.isDerived()).isTrue();
 
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\nFrom a derived predicate we can access it's definition rules");
+        print("\nFrom a derived predicate we can access its definition rules.\n");
         List<DerivationRule> derivationRules = olitPredicate.getDerivationRules();
-        LOGGER.info("Predicate's derivation rules:");
-        for (DerivationRule dr : derivationRules) LOGGER.info(logicSchemaPrinter.visit(dr));
+        printHeaderInline("Predicate's derivation rules:");
+        for (DerivationRule dr : derivationRules) print(logicSchemaPrinter.visit(dr));
 
         /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### LogicSchema operations\n ");
+        print("""
+                We refer as operations to those methods already available in the main metamodel classes.
+                For instance, given an atom we can unfold it:
+                """);
 
-        LOGGER.info("\n -- LOGIC SCHEMA PROPERTY CHECKING -- ");
-        LOGGER.info("\nOther schema property checks can be performed");
-        LOGGER.info("Selected Constraint(" + selectedConstraint.getID() + ") is safe: " + selectedConstraint.isSafe());
-        assertThat(selectedConstraint.isSafe()).isTrue();
-        LOGGER.info("Selected Ordinary Literal(" + logicSchemaPrinter.visit(olit) + ") is ground: " + olit.isGround());
-        assertThat(olit.isGround()).isFalse();
+        Predicate isStudentPredicate = logicSchema.getPredicateByName("IsStudent");
+        Atom johnAtom = new Atom(isStudentPredicate, List.of(new Constant("John")));
+        printWithHeaderInline("Original atom", johnAtom.toString());
+        printWithHeaderInline("Derivation rules it has", johnAtom.getPredicate().getDerivationRules().toString());
+        printWithHeaderInline("Atom after unfolding", johnAtom.unfold().toString());
+
+        print("\nThe unfold is also available for list of literals, and it takes care of avoiding variable name clashing:\n");
+        OrdinaryLiteral johnStudent = new OrdinaryLiteral(johnAtom);
+        OrdinaryLiteral maryStudent = new OrdinaryLiteral(new Atom(isStudentPredicate, List.of(new Constant("Mary"))));
+        ImmutableLiteralsList literalsList = new ImmutableLiteralsList(List.of(johnStudent, maryStudent));
+        printWithHeaderInline("Original literalsList", literalsList.toString());
+        printWithHeaderInline("Unfolding the second literal", literalsList.unfold(1).toString());
+        printWithHeaderInline("Unfolding both literals", literalsList.unfold(1).get(0).unfold(0).toString());
+        print("\nDo note that the unfolding has avoided a variable name clash with age.\n ");
 
         /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### LogicSchema services\n");
+        print("""
+                We refer as services to those operations that are not inside the main class diagram.
 
-        LOGGER.info("\n -- LOGIC SCHEMA TRANSFORMATIONS -- ");
-        LOGGER.info("Now we will apply a transformation pipeline over the original schema");
-        LOGGER.info("precisely, applying the EqualityReplacer, SchemaUnfolder & SingleDerivationRuleTransformer processes");
+                Just for example, we will show some transformation services. Transformation services receives as input a logic schema and outputs a new logic schema
+                after applying some transformation into it. Such processes can be executed in a pipeline.
+
+                For our demo, we will use the `EqualityReplacer`, `SchemaUnfolder` processes.
+                """);
+
         LogicProcessPipeline pipeline = new LogicProcessPipeline(List.of(
                 new EqualityReplacer(),
-                new SchemaUnfolder(false),
-                new SingleDerivationRuleTransformer()
+                new SchemaUnfolder(false)
         ));
         LogicSchema modifiedLogicSchema = pipeline.execute(logicSchema);
         printWithHeader("Modified schema", logicSchemaPrinter.print(modifiedLogicSchema));
 
         /* ---------------------------------------------------------------------------------------------------- */
-        /* ---------------------------------------------------------------------------------------------------- */
+        print("\n### PART 2: DependencySchema, the Datalog+/- metamodel");
+        print("""
+                #### Parsing a DependencySchema
+                We will now parse an ontology over the same university domain.
+                """);
 
-        LOGGER.info("\n -- LOADING DEPENDENCY SCHEMA UTILS & TOOLS -- ");
-        DependencySchemaParser dependencySchemaParser = new DependencySchemaParser();
-        DependencySchemaPrinter dependencySchemaPrinter = new DependencySchemaPrinter();
-
-        LOGGER.info("\n -- PARSING & PRINTING DEPENDENCY SCHEMA -- ");
         String dependencySchemaString = """
                 % If a student passes a subject, the student has some evaluation
                 HasPassed(student, subject) -> Exam(teacher, student, subject, data)
@@ -173,83 +221,91 @@ public class MainDemo {
                 Exam(teacher, student, subject, data), Exam(teacher2, student2, subject, data) -> teacher = teacher2
                 Exam(teacher, student, subject, data), Exam(teacher2, student2, subject, data) -> student = student2
                 """;
+
+        DependencySchemaParser dependencySchemaParser = new DependencySchemaParser();
         DependencySchema dependencySchema = dependencySchemaParser.parse(dependencySchemaString);
-        Set<Predicate> dependencySchemaPredicates = logicSchema.getAllPredicates();
-
+        print("\nWe can, for instance, print the dependency schema\n");
+        DependencySchemaPrinter dependencySchemaPrinter = new DependencySchemaPrinter();
         printWithHeader("Dependency Schema", dependencySchemaPrinter.print(dependencySchema));
-        LOGGER.info("\nPredicates:");
-        for (Predicate p : dependencySchemaPredicates) LOGGER.info(logicSchemaPrinter.visit(p));
+
+        print("\nLet's see what else can we do\n");
 
         /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\n -- DEPENDENCY PROPERTY CHECKING -- ");
+        print("\n#### DependencySchema navigation\n");
+        print("\nWe can pick the TGDs and EGDs of the schema, and similarly as before, navigate through the metamodel.\n");
         TGD tgd = dependencySchema.getAllTGDs().get(0);
-        printWithHeader("Selected TGD", dependencySchemaPrinter.visit(tgd));
+        printWithHeaderInline("Selected TGD", tgd.toString());
 
-        LOGGER.info("TGD is linear: " + tgd.isLinear());
-        LOGGER.info("TGD is guarded: " + tgd.isGuarded());
-        assertThat(tgd.isLinear()).isTrue();
-        assertThat(tgd.isGuarded()).isTrue();
+        EGD egd = dependencySchema.getAllEGDs().get(0);
+        printWithHeaderInline("Selected EGD", egd.toString());
+
+        EqualityComparisonBuiltInLiteral equality = egd.getHead();
+        printWithHeaderInline("Selected equality", equality.toString());
 
         /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### DependencySchema operations\n");
+        print("\nFor instance, we can check whether the previous TGD is linear, or guarded.\n");
+        println("TGD is linear: " + tgd.isLinear());
+        println("TGD is guarded: " + tgd.isGuarded());
 
-        LOGGER.info("\n -- DEPENDENCY SCHEMA PROPERTY CHECKING -- ");
-        LOGGER.info("First, we will check that no EGD is conflicting with the TGDs in the dependency schema");
+        /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### DependencySchema services\n");
+        print("\nAmong other services, we can check whether the EGDs are conflicting with the TGDs:\n");
+
         NonConflictingEGDsAnalyzer nonConflictingEGDsAnalyzer = new NonConflictingEGDsAnalyzer();
         boolean separable = nonConflictingEGDsAnalyzer.areEGDsNonConflictingWithTGDs(dependencySchema);
-        LOGGER.info("EGDs of schema are non conflicting / separable: " + separable);
-        assertThat(separable).isTrue();
+        println("EGDs of schema are non conflicting / separable: " + separable);
 
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\nWe will now analyze which Datalog+/- languages this dependency schema satisfies");
+        print("\nWe will now analyze which Datalog+/- languages this dependency schema satisfies\n");
         DatalogPlusMinusAnalyzer analyzer = new DatalogPlusMinusAnalyzer();
         Set<DatalogPlusMinusAnalyzer.DatalogPlusMinusLanguage> languages = analyzer.getDatalogPlusMinusLanguages(dependencySchema);
-        LOGGER.info("This dependency schema is: ");
-        for (DatalogPlusMinusAnalyzer.DatalogPlusMinusLanguage dl : languages) LOGGER.info(dl.name());
+        printHeaderInline("This dependency schema is: ");
+        for (DatalogPlusMinusAnalyzer.DatalogPlusMinusLanguage dl : languages) print(dl.name() + " ");
+        print("\nThere are also some transformation services, but we will take them a look on the thirt part of the demonstration.\n");
 
         /* ---------------------------------------------------------------------------------------------------- */
-        /* ---------------------------------------------------------------------------------------------------- */
+        print("\n### PART 3: Using IMP-Logics for OBDA\n");
+        print("""
+                We will show how IMP-Logics can be used to implement OBDA concepts such as an ontology query-rewritting.
+                We will assume that:
+                - Our logicSchema is a relational database
+                - Our dependencySchema is an ontology defined on top of the previous database
+                                
+                We start by "normalizing" the dependencySchema. That is, we need to obtain a new dependencySchema where each TGD head has at most one atom with at most one existential variable.
+                                
+                We can easily implement such normalization by concatenating two DependencySchema services from IMP-Logics
+                """);
 
-        LOGGER.info("\n -- REWRITING PROCESS -- ");
-        LOGGER.info("Now let's perform a rewriting of an ontological query.");
-        LOGGER.info("The loaded Logic Schema describes de relational database with with its Logic Constraints and Predicates.");
-        LOGGER.info("The loaded Dependency Schema describes de ontology with its TGDs and ontological predicates.");
-        LOGGER.info("Now, we will parse and load the mapping which links the ontology and relational database as well as the to be rewritten ontological query.");
-
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("The TGDs need to be normalized before the rewriting process. We normalize the dependencySchema.");
-        DependencySchema normalizedDependencySchema = new TGDNormalizerProcess().normalize(dependencySchema);
-        Set<Predicate> normalizedDependencySchemaPredicates = normalizedDependencySchema.getAllPredicates();
+        DependencyProcessPipeline dependencyProcessPipeline = new DependencyProcessPipeline(List.of(
+                new SingleHeadTGDTransformer(),                      //provided by IMP-Logics
+                new SingleExistentialVarTGDTransformer()));          //provided by IMP-Logics
+        DependencySchema normalizedDependencySchema = dependencyProcessPipeline.execute(dependencySchema);
 
         printWithHeader("Normalized Dependency Schema", dependencySchemaPrinter.print(normalizedDependencySchema));
-        LOGGER.info("\nPredicates:");
-        for (Predicate p : normalizedDependencySchemaPredicates) LOGGER.info(logicSchemaPrinter.visit(p));
+        print("\nWe now define some mappings from the predicates of the dependencySchema (the ontology) to the predicates of the logicSchema (the database). To do so, we reuse the Query class of IMP-Logics, and define our new class OBDAMapping.\n");
 
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("The loaded Logic Schema will provide the mappings between the ontology and the relational tables");
         String mappingDBQueriesString = """
-                %HasPassed(student, subject)
+                % HasPassed(student, subject)
                 (student, subject) :- DB_AcademicRecord(student, subject, mark), mark > 5
-                                
-                %Exam(teacher, student, subject, data)
+                    
+                % Exam(teacher, student, subject, data)
                 (teacher, student, subject, data) :- DB_Exam(teacher, student, subject, data)
-                                
-                %Teaches(teacher, subject)
+                    
+                % Teaches(teacher, subject)
                 (teacher, subject) :- DB_Teaches(teacher, subject)
-                                
-                %Studies(student, subject)
+                    
+                % Studies(student, subject)
                 (student, subject) :- DB_Studies(student, subject)
-                                
-                %ExpertIn(teacher, subject)
+                    
+                % ExpertIn(teacher, subject)
                 (teacher, subject) :- DB_PublishesAbout(teacher, paper, subject), DB_PublishesAbout(teacher, paper2, subject), paper<>paper2
-                                
-                %ComposesPlan(subject, studyPlan)
+                    
+                % ComposesPlan(subject, studyPlan)
                 (subject, studyPlan) :- DB_ComposesPlan(subject, studyPlan)
                 """;
-        List<Query> mappingDBQueries = queryParser.parse(mappingDBQueriesString, logicSchemaPredicates);
+
+        QueryParser queryParser = new QueryParser();                    //Provided by IMP-Logics
+        List<Query> mappingDBQueries = queryParser.parse(mappingDBQueriesString, predicates);
         OBDAMapping mapping = new OBDAMapping.OBDAMappingBuilder()
                 .addMapping(normalizedDependencySchema.getPredicateByName("HasPassed"), mappingDBQueries.get(0))
                 .addMapping(normalizedDependencySchema.getPredicateByName("Exam"), mappingDBQueries.get(1))
@@ -259,66 +315,52 @@ public class MainDemo {
                 .addMapping(normalizedDependencySchema.getPredicateByName("ComposesPlan"), mappingDBQueries.get(5))
                 .build();
 
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("Let's parse the ontological query:");
+        print("\nWe now define a Conjunctive Query over the ontology\n");
         String queryString = """
                 % Ontological Query
                 (student) :- Exam(teacher, student, subject, data)
                 """;
-        Query query = queryParser.parse(queryString, normalizedDependencySchemaPredicates).get(0);
-        assertThat(query.isConjunctiveQuery()).isTrue();
-        ConjunctiveQuery ontologicalQuery = (ConjunctiveQuery) query;
+        ConjunctiveQuery ontologicalQuery = (ConjunctiveQuery) queryParser.parse(queryString, normalizedDependencySchema.getAllPredicates()).get(0); //Provided by IMP-Logics
 
         /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### Rewriting the query\n");
+        print("\nWe have defined a new class Rewriter, using the metamodel of DependencySchema, that applies a FO-rewritting algorithm.");
 
-        LOGGER.info("\n -- APPLYING REWRITING PROCEDURE -- \n");
         Set<TGD> ontologyTGDs = new HashSet<>(normalizedDependencySchema.getAllTGDs());
         List<ConjunctiveQuery> rewriting = Rewriter.rewrite(ontologicalQuery, ontologyTGDs);
-
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\n -- PRINTING PARTIAL REWRITING -- \n");
+        print("\nWe can now print the query");
+        QueryPrinter queryPrinter = new QueryPrinter();
         for (int i = 0; i < rewriting.size(); i++) {
             Query queryToPrint = rewriting.get(i);
             printWithHeader("Query " + i, queryPrinter.print(queryToPrint));
         }
-
         /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\n -- APPLYING MAPPINGS -- \n");
+        print("\n#### Rewriting the query over the database\n");
+        print("\nTo finish the implementation of the query-rewritting, we need to translate the queries in terms of the database tables.\n");
         List<Query> finalRewriting = rewriting.stream()
                 .map(mapping::translateToDBQueries)
                 .flatMap(Collection::stream)
                 .toList();
-
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\n -- PRINTING REWRITING -- \n");
+        print("\nWe can now print the query\n");
         for (int i = 0; i < finalRewriting.size(); i++) {
             Query queryToPrint = finalRewriting.get(i);
             printWithHeader("Query " + i, queryPrinter.print(queryToPrint));
         }
-
         /* ---------------------------------------------------------------------------------------------------- */
+        print("\n#### We can use IMP-Logics asserts to check its validity\n");
+        print("""
+                IMP-Logics is not only useful for developing the code, but also for checking its validity.
+                To validate the developed code, IMP-Logics also offers several testing facilities, such as the definition of several asserts.
+                
+                In this example, we can check whether the 2nd query obtained query is isomorphic (i.e., the same up to variable-renaming) to an expected one:
+                 """);
 
-        LOGGER.info("\n -- ASSERT REWRITING IS EXPECTED -- \n");
-        String expectedRewritingString = """
-                % Expected Rewriting
-                (student) :- DB_Exam(teacher, student, subject, data)
-                (student) :- DB_AcademicRecord(student, subject, mark), mark > 5
-                (student) :- DB_Teaches(teacher, subject), DB_Studies(student, subject)
-                (student) :- DB_PublishesAbout(teacher, paper, subject), DB_PublishesAbout(teacher, paper2, subject), paper<>paper2, DB_ComposesPlan(subject, studyPlan), DB_Studies(student, subject)
-                """;
-        List<Query> expectedRewriting = queryParser.parse(expectedRewritingString, normalizedDependencySchemaPredicates);
-        assertThat(finalRewriting)
-                .satisfiesOnlyOnce(q -> LogicSchemaAssertions.assertThat(q).isIsomorphicTo(expectedRewriting.get(0)))
-                .satisfiesOnlyOnce(q -> LogicSchemaAssertions.assertThat(q).isIsomorphicTo(expectedRewriting.get(1)))
-                .satisfiesOnlyOnce(q -> LogicSchemaAssertions.assertThat(q).isIsomorphicTo(expectedRewriting.get(2)))
-                .satisfiesOnlyOnce(q -> LogicSchemaAssertions.assertThat(q).isIsomorphicTo(expectedRewriting.get(3)));
+        QueryAssert.assertThat(finalRewriting.get(2))
+                .isIsomorphicTo(List.of("st"), " DB_PublishesAbout(t, p, s), DB_PublishesAbout(t, p2, s), p<>p2, DB_ComposesPlan(s, sP), DB_Studies(st, s)");
+        print("\nDo note that the check fails if the actual query is not isomorphic to the expectation (here we change 'st' to 's' to make them non-isomorphic):\n");
+        QueryAssert.assertThat(finalRewriting.get(2))
+                .isIsomorphicTo(List.of("s"), " DB_PublishesAbout(t, p, s), DB_PublishesAbout(t, p2, s), p<>p2, DB_ComposesPlan(s, sP), DB_Studies(s, s)");
 
-        /* ---------------------------------------------------------------------------------------------------- */
-
-        LOGGER.info("\n DEMO END");
+        print("\nDEMO END");
     }
 }
